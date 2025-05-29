@@ -147,4 +147,18 @@ export function forbiddenResponse(message: string = 'Acesso negado') {
     success: false,
     error: message
   }, { status: 403 })
+}
+
+// Função para obter dados do usuário pelo token (para compatibilidade)
+export async function getTokenUserData(request: NextRequest) {
+  const user = await authenticateUser(request)
+  if (!user) return null
+  
+  return {
+    userId: user.id,
+    tenantId: user.empresaId, // empresaId como tenantId
+    email: user.email,
+    nome: user.nome,
+    role: user.role
+  }
 } 
