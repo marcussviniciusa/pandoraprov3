@@ -23,7 +23,10 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  Zap
+  Zap,
+  RefreshCw,
+  Loader2,
+  Trash2
 } from 'lucide-react'
 
 interface WhatsAppInstance {
@@ -58,51 +61,172 @@ export default function WhatsAppPage() {
     averageResponseTime: 0
   })
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [actionLoading, setActionLoading] = useState<string | null>(null)
   
   const { toast } = useToast()
 
   useEffect(() => {
-    loadInstances()
-    loadStats()
+    // Verificar autenticação antes de carregar dados
+    const checkAuth = async () => {
+      try {
+        const authResponse = await fetch('/api/auth/me', {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        })
+        
+        if (!authResponse.ok) {
+          console.warn('⚠️ Usuário não autenticado, redirecionando...')
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth/login'
+            return
+          }
+        }
+        
+        // Se autenticado, carregar dados
+        loadInstances()
+        loadStats()
+      } catch (error) {
+        console.error('❌ Erro ao verificar autenticação:', error)
+        if (typeof window !== 'undefined') {
+          window.location.href = '/auth/login'
+        }
+      }
+    }
+    
+    checkAuth()
+    
+    // Auto-refresh a cada 30 segundos (apenas se já autenticado)
+    const interval = setInterval(() => {
+      loadInstances()
+      loadStats()
+    }, 30000)
+    
+    return () => clearInterval(interval)
   }, [])
 
   const loadInstances = async () => {
     try {
-      // Carregar instâncias reais da API
-      const response = await fetch('/api/whatsapp/instances')
+      // Usar API de ações que lista instâncias reais
+      const response = await fetch('/api/whatsapp/instance/actions', {
+        method: 'GET',
+        credentials: 'include', // Importante para incluir cookies de sessão
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
       
       if (!response.ok) {
-        throw new Error('Erro ao carregar instâncias')
+        if (response.status === 401) {
+          console.warn('⚠️ Usuário não autenticado para carregar instâncias')
+          // Se não autenticado, verificar se está na rota de login
+          if (typeof window !== 'undefined' && !window.location.pathname.includes('/login')) {
+            console.log('🔄 Redirecionando para login...')
+            window.location.href = '/auth/login'
+            return
+          }
+          setInstances([])
+          return
+        }
+        throw new Error(`Erro HTTP ${response.status}: ${response.statusText}`)
       }
       
       const data = await response.json()
       
       if (data.success) {
-        setInstances(data.data || [])
+        let instancesData = data.data || []
+        
+        console.log(`📋 ${instancesData.length} instâncias carregadas para o usuário`)
+        console.log('🔍 Debug: Instâncias carregadas da API:', instancesData)
+        
+        // Log específico do status de cada instância
+        if (instancesData.length > 0) {
+          instancesData.forEach((instance: any, index: number) => {
+            console.log(`  📱 Instância ${index + 1}: ${instance.name} - Status: ${instance.status}`)
+          })
+        }
+        
+        // Se as instâncias estão vindo com status incorreto, verificar diretamente na API de status
+        if (instancesData.length > 0) {
+          console.log('🔄 Verificando status em tempo real de cada instância...')
+          
+          const updatedInstances = await Promise.all(
+            instancesData.map(async (instance: any) => {
+              try {
+                const statusResponse = await fetch(`/api/whatsapp/instance/status?instanceName=${instance.name}`, {
+                  credentials: 'include',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  }
+                })
+                
+                if (statusResponse.ok) {
+                  const statusData = await statusResponse.json()
+                  if (statusData.success) {
+                    console.log(`✅ Status atualizado para ${instance.name}: ${instance.status} → ${statusData.data.status}`)
+                    return {
+                      ...instance,
+                      status: statusData.data.status,
+                      state: statusData.data.state,
+                      lastSeen: statusData.data.lastSeen ? new Date(statusData.data.lastSeen) : instance.lastSeen
+                    }
+                  }
+                }
+                
+                console.log(`⚠️ Mantendo status original para ${instance.name}: ${instance.status}`)
+                return instance
+              } catch (error) {
+                console.warn(`❌ Erro ao verificar status de ${instance.name}:`, error)
+                return instance
+              }
+            })
+          )
+          
+          instancesData = updatedInstances
+          console.log('🔄 Status verificado para todas as instâncias')
+        }
+        
+        setInstances(instancesData)
       } else {
-        throw new Error(data.message || 'Erro desconhecido')
+        throw new Error(data.message || 'Erro desconhecido ao processar dados')
       }
     } catch (error) {
-      console.error('Erro ao carregar instâncias:', error)
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: "Erro ao carregar instâncias WhatsApp"
-      })
+      console.error('❌ Erro ao carregar instâncias:', error)
       
-      // Lista vazia em caso de erro
+      // Em caso de erro, manter lista vazia em vez de dados simulados
       setInstances([])
+      
+      // Mostrar toast apenas se não for problema de autenticação
+      if (error instanceof Error && !error.message.includes('401')) {
+        toast({
+          variant: "destructive",
+          title: "Erro ao carregar instâncias",
+          description: "Não foi possível carregar as instâncias WhatsApp. Verifique sua conexão e tente novamente.",
+        })
+      }
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
   }
 
   const loadStats = async () => {
     try {
-      // Carregar estatísticas reais da API
-      const response = await fetch('/api/whatsapp/stats')
+      // API de stats com autenticação
+      const response = await fetch('/api/whatsapp/stats', {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      })
       
       if (!response.ok) {
+        if (response.status === 401) {
+          console.warn('⚠️ Usuário não autenticado para carregar estatísticas')
+          return
+        }
         throw new Error('Erro ao carregar estatísticas')
       }
       
@@ -110,6 +234,7 @@ export default function WhatsAppPage() {
       
       if (data.success) {
         setStats(data.data)
+        console.log('📊 Estatísticas carregadas:', data.data)
       } else {
         throw new Error(data.message || 'Erro desconhecido')
       }
@@ -124,6 +249,143 @@ export default function WhatsAppPage() {
         totalChats: 0,
         responseRate: 0,
         averageResponseTime: 0
+      })
+    }
+  }
+
+  const handleRefresh = async () => {
+    setRefreshing(true)
+    
+    // Carregar instâncias primeiro (que agora verifica status em tempo real)
+    await loadInstances()
+    
+    // Depois carregar estatísticas
+    await loadStats()
+  }
+
+  const handleInstanceAction = async (instanceName: string, action: 'connect' | 'disconnect' | 'restart' | 'delete') => {
+    if (action === 'delete') {
+      const confirmed = confirm(
+        `Tem certeza que deseja deletar a instância "${instanceName}"?\n\n` +
+        `Esta ação não pode ser desfeita e remove a instância completamente do servidor.`
+      )
+      if (!confirmed) return
+    }
+
+    setActionLoading(instanceName + '_' + action)
+    
+    try {
+      console.log(`🔧 Executando ação "${action}" na instância:`, instanceName)
+      
+      const response = await fetch('/api/whatsapp/instance/actions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          instanceName,
+          action
+        })
+      })
+
+      const result = await response.json()
+
+      // Se a API retornou erro mas é uma tentativa de delete, oferecer limpeza forçada
+      if (!response.ok && action === 'delete') {
+        console.warn(`⚠️ Erro ao deletar instância "${instanceName}":`, result.message)
+        
+        const forceDelete = confirm(
+          `Erro ao deletar a instância "${instanceName}" pelo método normal.\n\n` +
+          `Erro: ${result.message}\n\n` +
+          `Deseja tentar uma LIMPEZA FORÇADA? Isto remove a instância da lista mesmo que ela ainda exista no servidor.`
+        )
+        
+        if (forceDelete) {
+          await handleForceCleanup(instanceName)
+          return
+        } else {
+          throw new Error(result.message || 'Erro ao executar ação')
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Erro ao executar ação')
+      }
+
+      console.log(`✅ Ação "${action}" executada com sucesso:`, result.data)
+
+      let message = ''
+      switch (action) {
+        case 'connect':
+          message = 'Instância conectada/QR Code gerado'
+          break
+        case 'disconnect':
+          message = 'Instância desconectada'
+          break
+        case 'restart':
+          message = 'Instância reiniciada'
+          break
+        case 'delete':
+          message = 'Instância deletada com sucesso'
+          break
+      }
+
+      toast({
+        variant: action === 'delete' ? "destructive" : "juridico",
+        title: message,
+        description: `Instância: ${instanceName}`
+      })
+
+      // Recarregar instâncias após ação
+      await loadInstances()
+
+    } catch (error) {
+      console.error(`❌ Erro ao executar ação "${action}":`, error)
+      
+      // Para delete, mostrar opções adicionais
+      if (action === 'delete') {
+        toast({
+          variant: "destructive",
+          title: "Erro ao deletar instância",
+          description: `${error instanceof Error ? error.message : 'Erro desconhecido'}. Tente novamente ou use a limpeza forçada.`
+        })
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Erro na ação",
+          description: error instanceof Error ? error.message : 'Erro desconhecido'
+        })
+      }
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
+  // Função para limpeza forçada de instâncias fantasma
+  const handleForceCleanup = async (instanceName: string) => {
+    try {
+      console.log(`🧹 Executando limpeza forçada da instância:`, instanceName)
+      
+      // Remover da lista local imediatamente
+      setInstances(prev => prev.filter(instance => instance.name !== instanceName))
+      
+      toast({
+        variant: "juridico",
+        title: "Limpeza forçada executada",
+        description: `Instância "${instanceName}" removida da lista local. Se ela ainda existir no servidor, aparecerá na próxima atualização.`
+      })
+
+      // Aguardar um pouco e recarregar para verificar se realmente sumiu
+      setTimeout(async () => {
+        await loadInstances()
+      }, 2000)
+
+    } catch (error) {
+      console.error(`❌ Erro na limpeza forçada:`, error)
+      toast({
+        variant: "destructive",
+        title: "Erro na limpeza forçada",
+        description: "Não foi possível limpar a instância da lista"
       })
     }
   }
@@ -179,7 +441,10 @@ export default function WhatsAppPage() {
         <div className="flex items-center justify-center h-64">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-juridico-azul mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Carregando WhatsApp...</p>
+            <p className="text-muted-foreground">Verificando autenticação e carregando WhatsApp...</p>
+            <p className="text-xs text-muted-foreground mt-2">
+              Se esta tela persistir, você será redirecionado para o login
+            </p>
           </div>
         </div>
       </DashboardLayout>
@@ -203,6 +468,36 @@ export default function WhatsAppPage() {
             </div>
             
             <div className="flex gap-3">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleRefresh}
+                disabled={refreshing}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Atualizar
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={async () => {
+                  setRefreshing(true)
+                  console.log('🔄 Forçando sincronização manual...')
+                  
+                  // Carregar instâncias primeiro (com verificação de status em tempo real)
+                  await loadInstances()
+                  
+                  // Depois carregar estatísticas
+                  await loadStats()
+                  
+                  console.log('✅ Sincronização manual concluída')
+                }}
+                disabled={refreshing}
+                className="bg-blue-50 hover:bg-blue-100"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
+                Sincronizar
+              </Button>
               <Button variant="outline" size="sm">
                 <Settings className="h-4 w-4 mr-2" />
                 Configurações
@@ -213,10 +508,12 @@ export default function WhatsAppPage() {
                   Abrir Chat
                 </Button>
               </Link>
-              <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                <Plus className="h-4 w-4 mr-2" />
-                Nova Instância
-              </Button>
+              <Link href="/whatsapp/create">
+                <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Nova Instância
+                </Button>
+              </Link>
             </div>
           </div>
         </BlurFade>
@@ -225,6 +522,7 @@ export default function WhatsAppPage() {
         <BlurFade delay={0.2}>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <motion.div
+              key="instances-card"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
@@ -235,15 +533,16 @@ export default function WhatsAppPage() {
                   <Smartphone className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stats.connectedInstances}/{stats.totalInstances}</div>
+                  <div className="text-2xl font-bold">{instances.filter(i => i.status === 'connected').length}/{instances.length}</div>
                   <p className="text-xs text-muted-foreground">
-                    {stats.connectedInstances} conectadas
+                    {instances.filter(i => i.status === 'connected').length} conectadas
                   </p>
                 </CardContent>
               </Card>
             </motion.div>
 
             <motion.div
+              key="conversations-card"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
@@ -263,6 +562,7 @@ export default function WhatsAppPage() {
             </motion.div>
 
             <motion.div
+              key="messages-card"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
@@ -282,6 +582,7 @@ export default function WhatsAppPage() {
             </motion.div>
 
             <motion.div
+              key="response-rate-card"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
@@ -309,13 +610,14 @@ export default function WhatsAppPage() {
               <CardTitle className="flex items-center gap-2">
                 <Smartphone className="h-5 w-5" />
                 Instâncias WhatsApp
+                {refreshing && <Loader2 className="h-4 w-4 animate-spin" />}
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {instances.map((instance, index) => (
                   <motion.div
-                    key={instance.id}
+                    key={`instance-${instance.name || instance.id || 'unknown'}-${index}`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.1 }}
@@ -331,10 +633,10 @@ export default function WhatsAppPage() {
                         <div className="flex items-center gap-2 text-sm text-gray-500">
                           <span>{instance.number || 'Número não configurado'}</span>
                           {instance.profileName && (
-                            <>
+                            <React.Fragment key={`profile-${instance.name}-${index}`}>
                               <span>•</span>
                               <span>{instance.profileName}</span>
-                            </>
+                            </React.Fragment>
                           )}
                         </div>
                         {instance.lastSeen && (
@@ -361,18 +663,71 @@ export default function WhatsAppPage() {
                       </Badge>
 
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                        {instance.status === 'connected' ? (
-                          <Button variant="outline" size="sm">
-                            <MessageCircle className="h-4 w-4" />
+                        <Link href={`/whatsapp/edit/${instance.name}`}>
+                          <Button variant="outline" size="sm" title="Editar configurações">
+                            <Settings className="h-4 w-4" />
                           </Button>
+                        </Link>
+                        
+                        {instance.status === 'connected' ? (
+                          <React.Fragment key={`connected-${instance.name}-${index}`}>
+                            <Link href="/whatsapp/chat">
+                              <Button variant="outline" size="sm" title="Abrir chat">
+                                <MessageCircle className="h-4 w-4" />
+                              </Button>
+                            </Link>
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleInstanceAction(instance.name, 'disconnect')}
+                              disabled={actionLoading === instance.name + '_disconnect'}
+                              className="text-orange-600 hover:text-orange-700"
+                              title="Desconectar instância"
+                            >
+                              {actionLoading === instance.name + '_disconnect' ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <WifiOff className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </React.Fragment>
+                        ) : instance.status === 'qr_code' ? (
+                          <Link href={`/whatsapp/qrcode/${instance.name}`}>
+                            <Button size="sm" className="bg-blue-600 hover:bg-blue-700" title="Ver QR Code">
+                              <QrCode className="h-4 w-4" />
+                            </Button>
+                          </Link>
                         ) : (
-                          <Button size="sm" className="bg-green-600 hover:bg-green-700">
-                            <Zap className="h-4 w-4" />
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleInstanceAction(instance.name, 'connect')}
+                            disabled={actionLoading === instance.name + '_connect'}
+                            className="bg-green-600 hover:bg-green-700"
+                            title="Conectar instância"
+                          >
+                            {actionLoading === instance.name + '_connect' ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Zap className="h-4 w-4" />
+                            )}
                           </Button>
                         )}
+                        
+                        {/* Botão de excluir - sempre visível */}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => handleInstanceAction(instance.name, 'delete')}
+                          disabled={actionLoading === instance.name + '_delete'}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          title="Excluir instância"
+                        >
+                          {actionLoading === instance.name + '_delete' ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
                       </div>
                     </div>
                   </motion.div>
@@ -388,10 +743,12 @@ export default function WhatsAppPage() {
                   <p className="text-gray-500 mb-4">
                     Configure sua primeira instância WhatsApp para começar
                   </p>
-                  <Button className="bg-green-600 hover:bg-green-700">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Criar primeira instância
-                  </Button>
+                  <Link href="/whatsapp/create">
+                    <Button className="bg-green-600 hover:bg-green-700">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Criar primeira instância
+                    </Button>
+                  </Link>
                 </div>
               )}
             </CardContent>

@@ -215,7 +215,10 @@ const MenuOptionSchema = new Schema({
     type: String,
     required: true
   },
-  subOptions: [this],
+  subOptions: {
+    type: [Schema.Types.Mixed],
+    default: []
+  },
   action: {
     type: String,
     enum: ['send_message', 'transfer_human', 'collect_info', 'send_document']

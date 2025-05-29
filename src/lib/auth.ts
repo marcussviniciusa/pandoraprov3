@@ -51,8 +51,14 @@ export function generateToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): string 
 
 // Função para extrair token do request
 export function extractToken(request: NextRequest): string | null {
-  // Primeiro verifica no cookie
-  const cookieToken = request.cookies.get('auth-token')?.value
+  // Primeiro verifica no cookie 'auth-token'
+  const authToken = request.cookies.get('auth-token')?.value
+  if (authToken) {
+    return authToken
+  }
+  
+  // Verifica também no cookie 'token' (compatibilidade)
+  const cookieToken = request.cookies.get('token')?.value
   if (cookieToken) {
     return cookieToken
   }

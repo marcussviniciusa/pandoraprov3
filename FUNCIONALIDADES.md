@@ -15,6 +15,8 @@
 - 📋 **Guia de configuração da Evolution API em português** ✨
 - 🔑 **Configuração automática de webhooks** ✨
 - 📊 **Monitoramento em tempo real do status de conexão** ✨
+- ⚙️ **Página de edição de instância com gerenciamento completo** ✨
+- 🗑️ **Botão de excluir instância direto na listagem principal** ✨
 
 ---
 
@@ -32,6 +34,7 @@
 - [x] **🔥 Sistema de Upload de Documentos** - Upload, preview e gestão completa de arquivos jurídicos ✨
 - [x] **🔥 Integração WhatsApp (Evolution API)** - Comunicação via WhatsApp com bot inteligente ✨
 - [x] **🔥 Interface de Chat WhatsApp** - Interface completa para atendimento em tempo real ✨
+- [x] **🔥 Sistema de Gerenciamento de Instâncias WhatsApp** - Criação, conexão via QR Code e controle completo ✨
 - [ ] **Gestão de Empresas** - CRUD completo de empresas
 - [ ] **Sistema de Atendimento** - Atendimento jurídico especializado
 - [ ] **Sistema de Especialidades** - Gestão de especialidades previdenciárias
@@ -412,6 +415,7 @@
 - [x] **🔥 Respostas rápidas jurídicas** com templates pré-definidos ✨
 - [x] **🔥 Integração total Evolution API** com todas as funcionalidades ✨
 - [x] **🔥 Interface de Conexão WhatsApp Real** - Página completa para conectar WhatsApp de produção ✨
+- [x] **🔥 Página de Edição de Instância** - Interface completa para editar configurações e gerenciar instâncias ✨
 
 **Principais recursos adicionados:**
 - 💬 Interface de chat moderna com sidebar de conversas e área de mensagens
@@ -424,6 +428,7 @@
 - 📋 **Guia de configuração da Evolution API em português** ✨
 - 🔑 **Configuração automática de webhooks** ✨
 - 📊 **Monitoramento em tempo real do status de conexão** ✨
+- ⚙️ **Página de edição de instância com gerenciamento completo** ✨
 
 ## 🔗 8. Webhook Personalizado para Integrações
 - [ ] Configuração de webhook externo por escritório/instância

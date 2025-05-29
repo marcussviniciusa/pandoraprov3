@@ -46,15 +46,45 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(dashboard)/whatsapp/page.js"
     ],
-    "/api/whatsapp/instances/route": [
+    "/api/whatsapp/instance/actions/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/whatsapp/instances/route.js"
+      "static/chunks/app/api/whatsapp/instance/actions/route.js"
     ],
     "/api/whatsapp/stats/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/whatsapp/stats/route.js"
+    ],
+    "/api/whatsapp/instance/status/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/whatsapp/instance/status/route.js"
+    ],
+    "/(dashboard)/whatsapp/edit/[instanceId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(dashboard)/whatsapp/edit/[instanceId]/page.js"
+    ],
+    "/documentos/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/documentos/page.js"
+    ],
+    "/api/documentos/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/documentos/route.js"
+    ],
+    "/api/clientes/route": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/api/clientes/route.js"
+    ],
+    "/kanban/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/kanban/page.js"
     ],
     "/(dashboard)/whatsapp/chat/page": [
       "static/chunks/webpack.js",
@@ -65,6 +95,11 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/whatsapp/chats/route.js"
+    ],
+    "/clientes/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/clientes/page.js"
     ],
     "/_not-found/page": [
       "static/chunks/webpack.js",

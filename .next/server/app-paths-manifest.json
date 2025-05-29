@@ -1,10 +1,12 @@
 {
-  "/api/whatsapp/chats/route": "app/api/whatsapp/chats/route.js",
-  "/_not-found/page": "app/_not-found/page.js",
+  "/api/whatsapp/instance/actions/route": "app/api/whatsapp/instance/actions/route.js",
   "/api/whatsapp/stats/route": "app/api/whatsapp/stats/route.js",
-  "/api/whatsapp/instances/route": "app/api/whatsapp/instances/route.js",
-  "/page": "app/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
+  "/api/whatsapp/instance/status/route": "app/api/whatsapp/instance/status/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
   "/(dashboard)/whatsapp/page": "app/(dashboard)/whatsapp/page.js",
-  "/(dashboard)/whatsapp/chat/page": "app/(dashboard)/whatsapp/chat/page.js"
+  "/(dashboard)/whatsapp/chat/page": "app/(dashboard)/whatsapp/chat/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/clientes/page": "app/clientes/page.js",
+  "/(dashboard)/whatsapp/edit/[instanceId]/page": "app/(dashboard)/whatsapp/edit/[instanceId]/page.js"
 }
